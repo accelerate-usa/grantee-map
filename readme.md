@@ -2,6 +2,8 @@
 
 Welcome to the super sweet and colorful world of the Accelerate Grantees Mapping Tool! 🗺️✨ This README is your ultimate guide to navigating and enjoying our tool, complete with all the shiny bells and whistles you could imagine. Let's dive into this candy land of data visualization!
 
+Visit the [A E S T H E T I C](https://ja-godfrey.github.io/accelerate/) map.
+
 ## Introduction 🚀
 
 The Accelerate Grantees Mapping Tool is a Python-based wonderland that makes visualizing grantee locations across the United States as fun as a day at the carnival! 🎡🍭 Using libraries like `pandas`, `plotly`, and `uszipcode`, this tool transforms boring spreadsheets into a mesmerizing map glittered with information.
