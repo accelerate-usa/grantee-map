@@ -4,9 +4,32 @@ import pandas as pd
 import plotly.express as px
 import dash
 from dash import dcc, html, Input, Output
+import plotly.io as pio
+from PIL import Image
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+# plotly global stuff
+custom_template = pio.templates["plotly_white"]
+# custom_template.layout.font.family = "Castoro"
+pio.templates.default = custom_template
+
+# Step 2: Function to add "icon.png" to the bottom left-hand side of the figure
+img = Image.open('icon.png')
+def add_icon(fig, image_path="icon.png"):
+    fig.add_layout_image(
+        dict(
+            source=img,
+            xref="paper", yref="paper",
+            x=0, y=0,
+            sizex=0.15, sizey=0.15,
+            xanchor="left", yanchor="bottom",
+            opacity=1,
+            layer="above"
+        )
+    )
+    return fig
 
 df_esser = pd.read_excel('./../data/raw/esser-federal-data.xlsx', sheet_name='prime') # data from https://covid-relief-data.ed.gov/data-download
 df_enrollment = pd.read_excel('./../data/raw/enrollment.xlsx') # data from https://nces.ed.gov/programs/digest/d23/tables/dt23_203.20.asp
@@ -55,6 +78,8 @@ fig = px.choropleth(
     labels={'esserAllocated':'ESSER I Grant Amount Allocated'},
     title="ESSER I Grant Amount Allocated by State"
 )
+
+fig = add_icon(fig, image_path="icon.png")
 
 # Display the map
 fig.show()
@@ -196,5 +221,62 @@ fig = px.choropleth(
 )
 
 # Show the figure
+fig.show()
+# %%
+abbreviation_map = {
+    'anyEsserASeaDirectActivitiesLearningLoss': 'Direct activities for learning loss',
+    'areEsser1SeaFundsAwarded': 'ESSER I funds to LEAs',
+    'areEsser2SeaFundsAwarded': 'ESSER II funds to LEAs',
+    'areEsser3LearningLossFundsAwarded': 'ESSER III learning loss funds to LEAs',
+    'areEsser3SummerEnrichmentAwarded': 'ESSER III summer enrichment to LEAs',
+    'areEsser3AfterschoolProgramsAwarded': 'ESSER III afterschool programs to LEAs',
+    'areEsser3OtherAwarded': 'ESSER III other funds to LEAs',
+    'areEsser1SeaNonLeaFundsAwarded': 'ESSER I funds to non-LEAs',
+    'areEsser2SeaNonLeaFundsAwarded': 'ESSER II funds to non-LEAs',
+    'areEsser3NonLeaLearningLossFundsAwarded': 'ESSER III learning loss funds to non-LEAs',
+    'areEsser3NonLeaSummerEnrichmentAwarded': 'ESSER III summer enrichment to non-LEAs',
+    'areEsser3NonLeaAfterschoolProgramsAwarded': 'ESSER III afterschool programs to non-LEAs',
+    'areEsser3NonLeaOtherAwarded': 'ESSER III other funds to non-LEAs',
+    'anyEsserAStrategiesIdentifyStudents': 'Strategies to identify impacted students',
+    'isEsserAIdentifiedByStudentDemographic': 'Demographic data',
+    'isEsserAIdentifiedByStudentOutcome': 'Academic outcome data',
+    'isEsserAIdentifiedByOtherStudentOutcome': 'Other student outcome data',
+    'isEsserAIdentifiedByMissedDays': 'Missed days data',
+    'isEsserAIdentifiedByOpportunityToLearn': 'Opportunity to learn data',
+    'isEsserAIdentifiedByStateAdministrativeData': 'State administrative data',
+    'isEsserAIdentifiedByHealthData': 'Health data',
+    'isEsserAIdentifiedByStakeholderInput': 'Stakeholder input',
+    'isEsserAIdentifiedByOtherData': 'Other data'
+}
+
+# Sum the counts for each data source and sort them
+data_source_counts = df[data_source_columns].sum().sort_values(ascending=True)
+
+# Map to natural language names using the abbreviation map
+data_source_counts.index = data_source_counts.index.map(abbreviation_map)
+
+# Create the bar chart
+fig = px.bar(
+    data_source_counts,
+    x=data_source_counts.values,
+    y=data_source_counts.index,
+    orientation='h',
+    labels={'x': 'Number of States', 'y': 'Data Source'},
+    title="Usage of Data Sources to Identify Students Disproportionately Impacted by COVID-19"
+)
+
+# Update layout to address bar width and y-axis alignment
+fig.update_layout(
+    title_x=0.5,
+    title_xanchor='center',
+    height=600,  # Increase height to give bars more space
+    yaxis=dict(
+        automargin=True,  # Automatically manage margins to align the labels
+        tickmode='linear'  # Ensure each label is aligned with its corresponding bar
+    ),
+    bargap=0.1  # Adjust gap between bars if needed
+)
+
+# Display the bar chart
 fig.show()
 # %%
