@@ -6,6 +6,12 @@ import dash
 from dash import dcc, html, Input, Output
 import plotly.io as pio
 from PIL import Image
+import plotly.offline as offline
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy.stats import norm, shapiro
+import plotly.graph_objects as go
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -17,7 +23,7 @@ pio.templates.default = custom_template
 
 # Step 2: Function to add "icon.png" to the bottom left-hand side of the figure
 img = Image.open('icon.png')
-def add_icon(fig, image_path="icon.png"):
+def add_icon(fig):
     fig.add_layout_image(
         dict(
             source=img,
@@ -57,11 +63,19 @@ df = df[df['stateCode'] != 'PR']
 #impute
 df['esserAllocated'] = df['esser1GrantAmountAllocated'] + df['esser2GrantAmountAllocated'] + df['esser3GrantAmountAllocated']
 
+df['esser1expendpercent'] = 1 - (df['esser1GrantAmountRemaining'] / df['esser1GrantAmountAllocated'])
+df['esser2expendpercent'] = 1 - (df['esser2GrantAmountRemaining'] / df['esser2GrantAmountAllocated'])
+df['esser3expendpercent'] = 1 - (df['esser3GrantAmountRemaining'] / df['esser3GrantAmountAllocated'])
+
+df['totalAmountRemaining'] = df['esser1GrantAmountRemaining'] + df['esser2GrantAmountRemaining'] + df['esser3GrantAmountRemaining']
+df['totalAmountAllocated'] = df['esser1GrantAmountAllocated'] + df['esser2GrantAmountAllocated'] + df['esser3GrantAmountAllocated']
+
 #impute from imputed
 df['expenditure_per_student'] = df['esserAllocated'] / df['Fall 2019']
+df['totalesserspent'] = 1 - (df['totalAmountRemaining'] / df['totalAmountAllocated'])
 
-#%%
-# Extract relevant columns
+# %%
+# how much spent per state
 df_map = df[['stateCode', 'esserAllocated']]
 
 # Clean the data (remove any $ symbols and commas from the grant amount and convert to numeric)
@@ -76,22 +90,93 @@ fig = px.choropleth(
     color_continuous_scale="Viridis",
     scope="usa",
     labels={'esserAllocated':'ESSER I Grant Amount Allocated'},
-    title="ESSER I Grant Amount Allocated by State"
+    title="How much ESSER funding was allocated to each state?"
 )
 
-fig = add_icon(fig, image_path="icon.png")
+fig.update_traces(
+    showscale=False  # Hide the color scale (legend)
+)
+
+fig.update_layout(
+    title={
+        'text':'How much ESSER funding was allocated to each state?',
+        'y': 0.95,
+        'x': 0.5,
+        'xanchor': 'center',
+        'yanchor': 'top',
+        'font': dict(size=40, family="Castoro", color="black")
+    },
+)
 
 # Display the map
+offline.plot(fig, filename='./../figures/state-esser-allocations.html', auto_open=False)
 fig.show()
-# %%
-# Display the relevant columns to review
-result_df = df[['stateCode', 'state_name', 'esser1GrantAmountAllocated', 'Fall 2019', 'expenditure_per_student']]
 
-# Round the expenditure per student to two decimal places and add a dollar sign
-result_df['expenditure_per_student'] = result_df['expenditure_per_student'].round(2)
-result_df['expenditure_per_student'] = result_df['expenditure_per_student'].apply(lambda x: f"${x:,.2f}")
+#%%
+# histogram
 
-# Create a new column with numeric values for the continuous scale
+stat, p_value = shapiro(df['esserAllocated'])
+
+hover_data = {
+    'stateCode': True,  # Show the stateCode
+    'esserAllocated': ':.2f'  # Show the esserAllocated with 2 decimal places
+}
+
+# Create the Plotly histogram
+fig = px.histogram(
+    df,
+    x='esserAllocated',
+    nbins=30,  # Adjust the number of bins
+    color='stateCode',  # Use stateCode to differentiate states in hover
+    hover_data=hover_data,
+    labels={'esserAllocated': 'ESSER Allocated'},
+    title='Histogram of ESSER Allocated',
+    color_discrete_map={state: 'rgb(0, 51, 102)' for state in df['stateCode'].unique()}
+)
+
+# Update layout for a modern look and remove the legend
+fig.update_layout(
+    xaxis_title='ESSER Allocated',
+    yaxis_title='Frequency',
+    title_font=dict(size=20, family='Arial', color='darkblue'),
+    xaxis=dict(showgrid=True, gridwidth=1, gridcolor='LightGrey'),
+    yaxis=dict(showgrid=True, gridwidth=1, gridcolor='LightGrey'),
+    plot_bgcolor='whitesmoke',
+    bargap=0.1,
+    showlegend=False  # Remove the legend
+)
+
+# line 
+# Calculate the mean and standard deviation for the normal distribution curve
+mean = np.mean(df['esserAllocated'])
+std_dev = np.std(df['esserAllocated'])
+
+# Generate x values for the normal distribution curve
+x_values = np.linspace(min(df['esserAllocated']), max(df['esserAllocated']), 100)
+y_values = norm.pdf(x_values, mean, std_dev) * len(df) * (max(df['esserAllocated']) - min(df['esserAllocated'])) / 30  # Scale the y values to match the histogram
+
+# Add the normal distribution curve to the plot
+fig.add_trace(go.Scatter(x=x_values, y=y_values, mode='lines', name='Normal Distribution', line=dict(color='darkblue', width=2)))
+
+note_text = f'Shapiro-Wilk Test: Statistic={stat:.4f}, p-value={p_value:.4f}'
+fig.add_annotation(
+    text=note_text,
+    xref='paper', yref='paper',
+    x=0, y=-0.15,
+    showarrow=False,
+    font=dict(size=12, color="darkblue")
+)
+
+# Show the figure
+offline.plot(fig, filename='./../figures/state-esser-allocations-histogram.html', auto_open=False)
+fig.show()
+
+#%%
+# how much spent per student
+result_df = df
+
+result_df['expenditure_per_student_numeric'] = pd.to_numeric(result_df['expenditure_per_student'].replace({'\$': '', ',': ''}, regex=True), errors='coerce')
+result_df['expenditure_per_student'] = result_df['expenditure_per_student_numeric'].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) else "N/A")
 result_df['expenditure_per_student_numeric'] = result_df['expenditure_per_student'].replace({'\$': '', ',': ''}, regex=True).astype(float)
 
 # Calculate the rank of each state based on expenditure per student (1 for highest, 50 for lowest)
@@ -110,13 +195,86 @@ fig = px.choropleth(
 )
 
 # Update the hover data to show the formatted expenditure per student and the rank
-fig.update_traces(hovertemplate="<b>%{location}</b><br>Expenditure per Student: %{z:$,.2f}<br>Rank: %{customdata}/50",
+fig.update_traces(hovertemplate="<b>%{location}</b><br>Expenditure per Student: %{z:$,.2f}<br>Rank: %{customdata}/51",
                   customdata=result_df['rank'])
 
-# Display the map
-fig.show()
-# %%
+fig.update_layout(
+    title={
+        'text':'How much ESSER funding was allocated per student?',
+        'y': 0.95,
+        'x': 0.5,
+        'xanchor': 'center',
+        'yanchor': 'top',
+        'font': dict(size=40, family="Castoro", color="black")
+    },
+)
 
+# Display the map
+offline.plot(fig, filename='./../figures/state-esser-allocations-per-student.html', auto_open=False)
+fig.show()
+
+# %%
+# histogram
+
+df['expenditure_per_student_numeric'] = pd.to_numeric(df['expenditure_per_student'].replace({'\$': '', ',': ''}, regex=True), errors='coerce')
+
+# Perform the Shapiro-Wilk test on the numeric data
+stat, p_value = shapiro(df['expenditure_per_student_numeric'].dropna())
+
+hover_data = {
+    'stateCode': True,  # Show the stateCode
+    'expenditure_per_student_numeric': ':.2f'  # Show the expenditure with 2 decimal places
+}
+
+# Create the Plotly histogram
+fig = px.histogram(
+    df,
+    x='expenditure_per_student_numeric',
+    nbins=30,  # Adjust the number of bins
+    color='stateCode',  # Use stateCode to differentiate states in hover
+    hover_data=hover_data,
+    labels={'expenditure_per_student_numeric': 'Expenditure per Student'},
+    title='Histogram of Expenditure per Student',
+    color_discrete_map={state: 'rgb(0, 51, 102)' for state in df['stateCode'].unique()}  # Apply dark blue shade
+)
+
+# Update layout for a modern look and remove the legend
+fig.update_layout(
+    xaxis_title='Expenditure per Student',
+    yaxis_title='Frequency',
+    title_font=dict(size=20, family='Arial', color='darkblue'),
+    xaxis=dict(showgrid=True, gridwidth=1, gridcolor='LightGrey'),
+    yaxis=dict(showgrid=True, gridwidth=1, gridcolor='LightGrey'),
+    plot_bgcolor='whitesmoke',
+    bargap=0.1,
+    showlegend=False  # Remove the legend
+)
+
+# Calculate the mean and standard deviation for the normal distribution curve
+mean = np.mean(df['expenditure_per_student_numeric'])
+std_dev = np.std(df['expenditure_per_student_numeric'])
+
+# Generate x values for the normal distribution curve
+x_values = np.linspace(min(df['expenditure_per_student_numeric']), max(df['expenditure_per_student_numeric']), 100)
+y_values = norm.pdf(x_values, mean, std_dev) * len(df) * (max(df['expenditure_per_student_numeric']) - min(df['expenditure_per_student_numeric'])) / 30  # Scale the y values to match the histogram
+
+# Add the normal distribution curve to the plot
+fig.add_trace(go.Scatter(x=x_values, y=y_values, mode='lines', name='Normal Distribution', line=dict(color='darkblue', width=2)))
+
+note_text = f'Shapiro-Wilk Test: Statistic={stat:.4f}, p-value={p_value:.4f}'
+fig.add_annotation(
+    text=note_text,
+    xref='paper', yref='paper',
+    x=0, y=-0.15,
+    showarrow=False,
+    font=dict(size=12, color="darkblue")
+)
+
+# Show the figure
+offline.plot(fig, filename='./../figures/state-esser-allocations-histogram.html', auto_open=False)
+fig.show()
+
+# %%
 # Initialize the Dash app
 app = dash.Dash(__name__)
 
@@ -279,4 +437,53 @@ fig.update_layout(
 
 # Display the bar chart
 fig.show()
+# %%
+app = dash.Dash(__name__)
+
+def create_choropleth_map(column, title):
+    fig = px.choropleth(
+        df,
+        locations='stateCode',
+        locationmode="USA-states",
+        color=column,
+        color_continuous_scale="Viridis",
+        scope="usa",
+        labels={column: 'Percentage Spent'},
+        title=title
+    )
+    fig.update_layout(
+        title_x=0.5,
+        title_xanchor='center',
+        coloraxis_colorbar=dict(
+            title="Percentage Spent",
+            tickformat=".0%"  # Format the ticks as percentages
+        )
+    )
+    return fig
+
+# Create the layout for the Dash app
+app.layout = html.Div([
+    dcc.Tabs([
+        dcc.Tab(label='ESSER I', children=[
+            dcc.Graph(figure=create_choropleth_map('esser1expendpercent', 'What Percent of ESSER I is Spent?'))
+        ]),
+        dcc.Tab(label='ESSER II', children=[
+            dcc.Graph(figure=create_choropleth_map('esser2expendpercent', 'What Percent of ESSER II is Spent'))
+        ]),
+        dcc.Tab(label='ESSER III', children=[
+            dcc.Graph(figure=create_choropleth_map('esser3expendpercent', 'What Percent of ESSER III is Spent'))
+        ]),
+        dcc.Tab(label='Total ESSER', children=[
+            dcc.Graph(figure=create_choropleth_map('totalesserspent', 'What Percent of ESSER funds are Spent'))
+        ])
+    ])
+])
+
+# Run the app
+if __name__ == '__main__':
+    app.run_server(debug=True)
+# %%
+
+df_esser = pd.read_excel('./../data/raw/esser-federal-data.xlsx', sheet_name='arp') 
+df_esser['isEsser3Mand20Tutoring'].mean()
 # %%
