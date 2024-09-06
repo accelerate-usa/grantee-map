@@ -52,6 +52,4 @@ for filename in os.listdir(folder_path):
         print(f'Added Google Analytics tracking and Open Graph tags to {filename}')
 
 print('All HTML files have been processed.')
-
-
 # %%
