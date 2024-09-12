@@ -378,6 +378,7 @@ fig = px.choropleth(
     title='Number of Data Sources Used to Identify Students Disproportionately Impacted by COVID-19'
 )
 
+
 # Show the figure
 fig.show()
 # %%
