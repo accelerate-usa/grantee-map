@@ -226,6 +226,15 @@ hover_data = {
     'expenditure_per_student_numeric': ':.2f'  # Show the expenditure with 2 decimal places
 }
 
+# histogram plot
+num_states = len(df['stateCode'].unique())
+
+# Generate a color scale with enough shades of blue for all states
+blues = plotly.colors.sample_colorscale('Blues', [0.2 + n / num_states * 0.8 for n in range(num_states)])
+
+# Create the color_discrete_map with different shades of blue for each state
+color_discrete_map = {state: blues[i] for i, state in enumerate(df['stateCode'].unique())}
+
 # Create the Plotly histogram
 fig = px.histogram(
     df,
@@ -235,7 +244,7 @@ fig = px.histogram(
     hover_data=hover_data,
     labels={'expenditure_per_student_numeric': 'Expenditure per Student'},
     title='Histogram of Expenditure per Student',
-    color_discrete_map={state: 'rgb(0, 51, 102)' for state in df['stateCode'].unique()}  # Apply dark blue shade
+    color_discrete_map=color_discrete_map  # Apply varying blue shades
 )
 
 # Update layout for a modern look and remove the legend
@@ -274,6 +283,7 @@ fig.add_annotation(
 offline.plot(fig, filename='./../figures/state-esser-allocations-histogram.html', auto_open=False)
 fig.show()
 
+
 # %%
 # Initialize the Dash app
 app = dash.Dash(__name__)
@@ -293,26 +303,28 @@ columns_with_names = {
     'areEsser3NonLeaSummerEnrichmentAwarded': 'Did the state award ARP ESSER III Summer Enrichment Funds to non-LEA entities during the reporting period?',
     'areEsser3NonLeaAfterschoolProgramsAwarded': 'Did the state award ARP ESSER III Afterschool Program Funds to non-LEA entities during the reporting period?',
     'areEsser3NonLeaOtherAwarded': 'Did the state award ARP ESSER III Other Reserve Funds to non-LEA entities during the reporting period?',
-    'anyEsserAStrategiesIdentifyStudents': 'Did the state use any listed strategies to identify students disproportionately impacted by COVID-19?',
-    'isEsserAIdentifiedByStudentDemographic': 'Did the state use demographic data to identify students disproportionately impacted by COVID-19?',
-    'isEsserAIdentifiedByStudentOutcome': 'Did the state use student academic outcome data to identify students disproportionately impacted by COVID-19?',
-    'isEsserAIdentifiedByOtherStudentOutcome': 'Did the state use other student outcome data to identify students disproportionately impacted by COVID-19?',
-    'isEsserAIdentifiedByMissedDays': 'Did the state use data on missed in-person instruction days to identify students disproportionately impacted by COVID-19?',
-    'isEsserAIdentifiedByOpportunityToLearn': 'Did the state use opportunity to learn data to identify students disproportionately impacted by COVID-19?',
-    'isEsserAIdentifiedByStateAdministrativeData': 'Did the state use state administrative data to identify students disproportionately impacted by COVID-19?',
-    'isEsserAIdentifiedByHealthData': 'Did the state use health data to identify students disproportionately impacted by COVID-19?',
-    'isEsserAIdentifiedByStakeholderInput': 'Did the state use stakeholder input to identify students disproportionately impacted by COVID-19?',
-    'isEsserAIdentifiedByOtherData': 'Did the state use other data to identify students disproportionately impacted by COVID-19?'
+#     'anyEsserAStrategiesIdentifyStudents': 'Did the state use any listed strategies to identify students disproportionately impacted by COVID-19?',
+#     'isEsserAIdentifiedByStudentDemographic': 'Did the state use demographic data to identify students disproportionately impacted by COVID-19?',
+#     'isEsserAIdentifiedByStudentOutcome': 'Did the state use student academic outcome data to identify students disproportionately impacted by COVID-19?',
+#     'isEsserAIdentifiedByOtherStudentOutcome': 'Did the state use other student outcome data to identify students disproportionately impacted by COVID-19?',
+#     'isEsserAIdentifiedByMissedDays': 'Did the state use data on missed in-person instruction days to identify students disproportionately impacted by COVID-19?',
+#     'isEsserAIdentifiedByOpportunityToLearn': 'Did the state use opportunity to learn data to identify students disproportionately impacted by COVID-19?',
+#     'isEsserAIdentifiedByStateAdministrativeData': 'Did the state use state administrative data to identify students disproportionately impacted by COVID-19?',
+#     'isEsserAIdentifiedByHealthData': 'Did the state use health data to identify students disproportionately impacted by COVID-19?',
+#     'isEsserAIdentifiedByStakeholderInput': 'Did the state use stakeholder input to identify students disproportionately impacted by COVID-19?',
+#     'isEsserAIdentifiedByOtherData': 'Did the state use other data to identify students disproportionately impacted by COVID-19?'
 }
 
 
 # Function to create choropleth map for each column
 def create_choropleth(column):
-    # Convert the boolean column to categorical strings for color mapping
-    df[column] = df[column].map({True: 'True', False: 'False'})
+    # Create a copy of the DataFrame to avoid modifying it in place
+    df_copy = df.copy()
+    # Map the boolean column to strings in the copied DataFrame
+    df_copy[column] = df_copy[column].map({True: 'True', False: 'False'})
     
     return px.choropleth(
-        df,
+        df_copy,
         locations='stateCode',
         locationmode="USA-states",
         color=column,
@@ -320,6 +332,7 @@ def create_choropleth(column):
         scope="usa",
         labels={column: "Legend"},  # Set the title for the legend
     )
+
 
 # Layout with a dropdown and a graph
 app.layout = html.Div([
@@ -343,13 +356,112 @@ def update_choropleth(selected_column):
 # Run the app
 if __name__ == '__main__':
     app.run_server(debug=True)
+#%%
+
+import plotly.graph_objects as go
+import pandas as pd
+
+# Assuming df is your DataFrame with necessary data
+# Ensure df has 'stateCode' and the boolean columns in 'columns_with_names'
+
+# Dictionary mapping columns to natural language names
+columns_with_names = {
+    'anyEsserASeaDirectActivitiesLearningLoss': 'Did the state directly administer activities to address the learning loss of students disproportionately impacted by COVID-19?',
+    'areEsser1SeaFundsAwarded': 'Did the state award ESSER I SEA Reserve Funds to local educational agencies (LEAs) during the reporting period?',
+    'areEsser2SeaFundsAwarded': 'Did the state award ESSER II SEA Reserve Funds to LEAs during the reporting period?',
+    'areEsser3LearningLossFundsAwarded': 'Did the state award ARP ESSER III Learning Loss Funds to LEAs during the reporting period?',
+    'areEsser3SummerEnrichmentAwarded': 'Did the state award ARP ESSER III Summer Enrichment Funds to LEAs during the reporting period?',
+    'areEsser3AfterschoolProgramsAwarded': 'Did the state award ARP ESSER III Afterschool Program Funds to LEAs during the reporting period?',
+    'areEsser3OtherAwarded': 'Did the state award ARP ESSER III Other Reserve Funds to LEAs during the reporting period?',
+    'areEsser1SeaNonLeaFundsAwarded': 'Did the state award ESSER I SEA Reserve Funds to non-LEA entities during the reporting period?',
+    'areEsser2SeaNonLeaFundsAwarded': 'Did the state award ESSER II SEA Reserve Funds to non-LEA entities during the reporting period?',
+    'areEsser3NonLeaLearningLossFundsAwarded': 'Did the state award ARP ESSER III Learning Loss Funds to non-LEA entities during the reporting period?',
+    'areEsser3NonLeaSummerEnrichmentAwarded': 'Did the state award ARP ESSER III Summer Enrichment Funds to non-LEA entities during the reporting period?',
+    'areEsser3NonLeaAfterschoolProgramsAwarded': 'Did the state award ARP ESSER III Afterschool Program Funds to non-LEA entities during the reporting period?',
+    'areEsser3NonLeaOtherAwarded': 'Did the state award ARP ESSER III Other Reserve Funds to non-LEA entities during the reporting period?',
+}
+
+# Create a copy of the DataFrame to avoid modifying it in place
+df_copy = df.copy()
+
+# Map boolean columns to numerical values for z, and 'Yes'/'No' for text
+for column in columns_with_names.keys():
+    df_copy[column + '_num'] = df_copy[column].map({True: 1, False: 0})
+    df_copy[column + '_text'] = df_copy[column].map({True: 'Yes', False: 'No'})
+
+# Initialize the figure
+fig = go.Figure()
+
+# Define the colorscale mapping 0 to 'coral' and 1 to 'teal'
+colorscale = [
+    [0.0, '#304A6F'],
+    [0.4999, '#304A6F'],
+    [0.5, '#10A59C'],
+    [1.0, '#10A59C']
+]
+
+# Add a choropleth trace for each column
+for i, (column, name) in enumerate(columns_with_names.items()):
+    fig.add_trace(go.Choropleth(
+        locations=df_copy['stateCode'],
+        z=df_copy[column + '_num'],
+        text=df_copy[column + '_text'],  # Use 'Yes'/'No' for hover text
+        locationmode="USA-states",
+        colorscale=colorscale,
+        zmin=0,
+        zmax=1,
+        marker_line_color='white',
+        colorbar=dict(
+            title="",
+            tickvals=[0, 1],
+            ticktext=['No', 'Yes'],
+        ),
+        hovertemplate='<b>%{location}</b><br>%{text}<extra></extra>',
+        visible=(i == 0),  # Only the first trace is visible initially
+        showscale=True  # Remove the legend
+    ))
+
+# Create the dropdown menu buttons
+buttons = []
+for i, (column, name) in enumerate(columns_with_names.items()):
+    # Hide all traces initially
+    visible = [False] * len(columns_with_names)
+    # Make the selected trace visible
+    visible[i] = True
+    button = dict(
+        label=name,
+        method='update',
+        args=[
+            {'visible': visible},
+            {'title': ''}  # Remove the title
+        ]
+    )
+    buttons.append(button)
+
+# Update the figure layout with dropdown menu and set the font to Poppins
+fig.update_layout(
+    updatemenus=[dict(
+        buttons=buttons,
+        direction='down',
+        pad={'r': 10, 't': 10},
+        showactive=True,
+        x=0.5,
+        xanchor='center',
+        y=1.0,
+        yanchor='top',
+        font=dict(family='Poppins', size=16),
+    )],
+    margin=dict(l=0, r=0, t=50, b=0),
+    geo=dict(scope='usa'),
+)
+
+# Display the figure
+fig.write_html("./../figures/state_esser_uses.html")
+fig.show()
+
 
 # %%
 
-# Initialize the Dash app
-app = dash.Dash(__name__)
-
-# List of columns related to data sources used to identify impacted students
 data_source_columns = [
     'isEsserAIdentifiedByStudentDemographic',
     'isEsserAIdentifiedByStudentOutcome',
@@ -362,9 +474,29 @@ data_source_columns = [
     'isEsserAIdentifiedByOtherData'
 ]
 
+# Mapping for natural language abbreviations
+data_source_mapping = {
+    'isEsserAIdentifiedByStudentDemographic': 'Student Demographic',
+    'isEsserAIdentifiedByStudentOutcome': 'Student Outcome',
+    'isEsserAIdentifiedByOtherStudentOutcome': 'Other Student Outcome',
+    'isEsserAIdentifiedByMissedDays': 'Missed Days',
+    'isEsserAIdentifiedByOpportunityToLearn': 'Opportunity to Learn',
+    'isEsserAIdentifiedByStateAdministrativeData': 'State Administrative Data',
+    'isEsserAIdentifiedByHealthData': 'Health Data',
+    'isEsserAIdentifiedByStakeholderInput': 'Stakeholder Input',
+    'isEsserAIdentifiedByOtherData': 'Other Data'
+}
+
 # Calculate the score for each state (number of data sources used)
 df['data_source_score'] = df[data_source_columns].sum(axis=1)
 df['data_source_score'] = df['data_source_score'].astype(float)
+
+# Create a hover data column that lists the data sources used
+def get_data_sources_used(row):
+    used_sources = [data_source_mapping[col] for col in data_source_columns if row[col] == 1]
+    return ', '.join(used_sources)
+
+df['data_sources_used'] = df.apply(get_data_sources_used, axis=1)
 
 # Create the choropleth map with a continuous gradient color scale
 fig = px.choropleth(
@@ -375,12 +507,36 @@ fig = px.choropleth(
     color_continuous_scale='Viridis',  # Continuous gradient color scale
     scope="usa",
     labels={'data_source_score': 'Number of Data Sources Used'},
-    title='Number of Data Sources Used to Identify Students Disproportionately Impacted by COVID-19'
+    title='What data is used to identify students hit hardest by COVID-19?',
+    hover_data={
+        'stateCode': False,              # State code is not shown here; it's shown in the hovertemplate
+        'data_source_score': True,       # Number of data sources used
+        'data_sources_used': True        # List of data sources used
+    }  
 )
 
+fig.update_layout(
+    title={
+        'text':'What data is used to identify students hit hardest by COVID-19?',
+        'y': 0.95,
+        'x': 0.5,
+        'xanchor': 'center',
+        'yanchor': 'top',
+        'font': dict(size=40, family="Castoro", color="black")
+    },
+)
 
-# Show the figure
+# Make sure to pass `customdata` to the trace to use in hovertemplate
+fig.update_traces(
+    customdata=df[['data_sources_used']],  # Pass the custom data to the trace
+    hovertemplate="<b>%{location}</b><br>" +   # State name (uses location value)
+                  "Number of Data Sources Used: %{z}<br>" +  # Show the number of data sources
+                  "Sources: %{customdata[0]}"  # Correctly reference custom data for sources
+)
+
 fig.show()
+# Output to HTML
+fig.write_html("./../figures/state_data_used.html")
 # %%
 abbreviation_map = {
     'anyEsserASeaDirectActivitiesLearningLoss': 'Direct activities for learning loss',
@@ -414,6 +570,19 @@ data_source_counts = df[data_source_columns].sum().sort_values(ascending=True)
 # Map to natural language names using the abbreviation map
 data_source_counts.index = data_source_counts.index.map(abbreviation_map)
 
+# Create a dictionary to store states that used each data source
+data_source_states = {}
+
+for col in data_source_columns:
+    data_source_name = abbreviation_map[col]
+    # List of states that used this data source
+    states_using_source = df.loc[df[col] == 1, 'stateCode'].tolist()
+    # Join list of states into a single string
+    data_source_states[data_source_name] = ', '.join(states_using_source)
+
+# Prepare custom hover data
+custom_hover_data = [[data_source_states[data_source]] for data_source in data_source_counts.index]
+
 # Create the bar chart
 fig = px.bar(
     data_source_counts,
@@ -421,7 +590,16 @@ fig = px.bar(
     y=data_source_counts.index,
     orientation='h',
     labels={'x': 'Number of States', 'y': 'Data Source'},
-    title="Usage of Data Sources to Identify Students Disproportionately Impacted by COVID-19"
+    title="Distribution of data sources used to identify students hit hardest by COVID-19"
+)
+
+# Update hover template to include states
+fig.update_traces(
+    customdata=custom_hover_data,  # Attach the custom hover data
+    hovertemplate="<b>%{y}</b><br>" +  # Data source name
+                  "Number of States: %{x}<br>" +  # Number of states
+                  "States: %{customdata[0]}",  # States that used the data source
+    marker=dict(color='#304A6F')
 )
 
 # Update layout to address bar width and y-axis alignment
@@ -436,53 +614,114 @@ fig.update_layout(
     bargap=0.1  # Adjust gap between bars if needed
 )
 
+fig.update_layout(
+    font=dict(
+        family="Poppins",
+        size=16,  # Default font size
+        color="black"  # Default font color
+    ),
+    title={
+        'text': "Distribution of data sources used to identify students hit hardest by COVID-19",
+        'y': 0.95,
+        'x': 0.5,
+        'xanchor': 'center',
+        'yanchor': 'top',
+        'font': dict(size=40, family="Castoro", color="black")  # Override title font
+    },
+    height=600,  # Increase height to give bars more space
+    bargap=0.1  # Adjust gap between bars if needed
+)
+
 # Display the bar chart
+fig.write_html("./../figures/state_data_used_bar.html")
 fig.show()
+
 # %%
-app = dash.Dash(__name__)
+# What percent of ESSER funds are spent?
 
-def create_choropleth_map(column, title):
-    fig = px.choropleth(
-        df,
-        locations='stateCode',
-        locationmode="USA-states",
-        color=column,
-        color_continuous_scale="Viridis",
-        scope="usa",
-        labels={column: 'Percentage Spent'},
-        title=title
-    )
-    fig.update_layout(
-        title_x=0.5,
-        title_xanchor='center',
-        coloraxis_colorbar=dict(
+columns = [
+    ('totalesserspent', 'What Percent of ESSER Funds are Spent?    '),
+    ('esser1expendpercent', 'What Percent of ESSER I is Spent?    '),
+    ('esser2expendpercent', 'What Percent of ESSER II is Spent?    '),
+    ('esser3expendpercent', 'What Percent of ESSER III is Spent?    '),
+
+]
+
+# Initialize the figure
+fig = go.Figure()
+
+# Add a choropleth trace for each ESSER fund
+for i, (col, title) in enumerate(columns):
+    fig.add_trace(go.Choropleth(
+        locations=df['stateCode'],
+        z=df[col],
+        locationmode='USA-states',
+        colorscale="Viridis",
+        colorbar=dict(
             title="Percentage Spent",
-            tickformat=".0%"  # Format the ticks as percentages
-        )
+            tickformat=".0%"
+        ),
+        zmin=0,
+        zmax=1,
+        visible=(i == 0),  # Only the first trace is visible initially
+        name=title,
+        hovertemplate='<b>%{location}</b><br>' +
+                      'Percentage Spent: %{z:.1%}<extra></extra>'
+    ))
+
+# Create a dropdown menu to toggle between traces
+dropdown_buttons = []
+for i, (col, title) in enumerate(columns):
+    visibility = [False] * len(columns)
+    visibility[i] = True  # Make the selected trace visible
+    button = dict(
+        label=title,
+        method='update',
+        args=[
+            {'visible': visibility},
+            # Remove title update since we're removing the title
+        ]
     )
-    return fig
+    dropdown_buttons.append(button)
 
-# Create the layout for the Dash app
-app.layout = html.Div([
-    dcc.Tabs([
-        dcc.Tab(label='ESSER I', children=[
-            dcc.Graph(figure=create_choropleth_map('esser1expendpercent', 'What Percent of ESSER I is Spent?'))
-        ]),
-        dcc.Tab(label='ESSER II', children=[
-            dcc.Graph(figure=create_choropleth_map('esser2expendpercent', 'What Percent of ESSER II is Spent'))
-        ]),
-        dcc.Tab(label='ESSER III', children=[
-            dcc.Graph(figure=create_choropleth_map('esser3expendpercent', 'What Percent of ESSER III is Spent'))
-        ]),
-        dcc.Tab(label='Total ESSER', children=[
-            dcc.Graph(figure=create_choropleth_map('totalesserspent', 'What Percent of ESSER funds are Spent'))
-        ])
-    ])
-])
+# Update the figure layout with the dropdown
+fig.update_layout(
+    updatemenus=[
+        dict(
+            active=0,
+            buttons=dropdown_buttons,
+            direction='down',
+            showactive=True,
+            x=0.5,           # Center the dropdown
+            xanchor='center',
+            y=1.0,           # Position at the top
+            yanchor='top',
+            pad={"r": 10, "t": 10},
+            type='dropdown',
+            font=dict(
+                size=24,      # Increase font size
+                family="Castoro",
+                color="black"
+            ),
+        )
+    ],
+    geo=dict(
+        scope='usa',
+        projection=go.layout.geo.Projection(type='albers usa')
+    ),
+    font=dict(
+        family="Poppins",
+        size=16,  # Default font size for the rest of the chart
+        color="black"
+    ),
+    margin=dict(l=50, r=50, t=50, b=50)  # Adjust top margin since title is removed
+)
 
-# Run the app
-if __name__ == '__main__':
-    app.run_server(debug=True)
+
+# Display the figure
+fig.write_html("./../figures/state_percent_esser_spent.html")
+fig.show()
+
 # %%
 
 df_esser = pd.read_excel('./../data/raw/esser-federal-data.xlsx', sheet_name='arp') 
