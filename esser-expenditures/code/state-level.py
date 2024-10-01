@@ -285,9 +285,6 @@ fig.show()
 
 
 # %%
-# Initialize the Dash app
-app = dash.Dash(__name__)
-
 # Dictionary mapping columns to natural language names
 columns_with_names = {
     'anyEsserASeaDirectActivitiesLearningLoss': 'Did the state directly administer activities to address the learning loss of students disproportionately impacted by COVID-19?',
@@ -315,56 +312,6 @@ columns_with_names = {
 #     'isEsserAIdentifiedByOtherData': 'Did the state use other data to identify students disproportionately impacted by COVID-19?'
 }
 
-
-# Function to create choropleth map for each column
-def create_choropleth(column):
-    # Create a copy of the DataFrame to avoid modifying it in place
-    df_copy = df.copy()
-    # Map the boolean column to strings in the copied DataFrame
-    df_copy[column] = df_copy[column].map({True: 'True', False: 'False'})
-    
-    return px.choropleth(
-        df_copy,
-        locations='stateCode',
-        locationmode="USA-states",
-        color=column,
-        color_discrete_map={'True': 'teal', 'False': 'coral'},  # Consistent color scheme
-        scope="usa",
-        labels={column: "Legend"},  # Set the title for the legend
-    )
-
-
-# Layout with a dropdown and a graph
-app.layout = html.Div([
-    dcc.Dropdown(
-        id='dropdown',
-        options=[{'label': name, 'value': column} for column, name in columns_with_names.items()],
-        value='anyEsserASeaDirectActivitiesLearningLoss',  # Default value
-        clearable=False
-    ),
-    dcc.Graph(id='choropleth')
-])
-
-# Callback to update the graph based on dropdown selection
-@app.callback(
-    Output('choropleth', 'figure'),
-    [Input('dropdown', 'value')]
-)
-def update_choropleth(selected_column):
-    return create_choropleth(selected_column)
-
-# Run the app
-if __name__ == '__main__':
-    app.run_server(debug=True)
-#%%
-
-import plotly.graph_objects as go
-import pandas as pd
-
-# Assuming df is your DataFrame with necessary data
-# Ensure df has 'stateCode' and the boolean columns in 'columns_with_names'
-
-# Dictionary mapping columns to natural language names
 columns_with_names = {
     'anyEsserASeaDirectActivitiesLearningLoss': 'Did the state directly administer activities to address the learning loss of students disproportionately impacted by COVID-19?',
     'areEsser1SeaFundsAwarded': 'Did the state award ESSER I SEA Reserve Funds to local educational agencies (LEAs) during the reporting period?',
@@ -723,7 +670,85 @@ fig.write_html("./../figures/state_percent_esser_spent.html")
 fig.show()
 
 # %%
+import plotly.graph_objects as go
+import pandas as pd
 
-df_esser = pd.read_excel('./../data/raw/esser-federal-data.xlsx', sheet_name='arp') 
-df_esser['isEsser3Mand20Tutoring'].mean()
+# Assuming df is your DataFrame with necessary data
+# Ensure df has 'stateCode' and the boolean columns in 'columns_with_names'
+
+# Dictionary mapping combined columns to natural language names
+combined_columns_with_names = {
+    'anyEsserASeaDirectActivitiesLearningLoss': 'Did the state directly administer activities to address the learning loss of students disproportionately impacted by COVID-19?',
+    'seaFundsAwarded': 'Did the state award ESSER SEA Reserve Funds to local educational agencies (LEAs) during the reporting period?',
+    'seaNonLeaFundsAwarded': 'Did the state award ESSER SEA Reserve Funds to non-LEA entities during the reporting period?',
+    'learningLossFundsAwarded': 'Did the state award ARP ESSER Learning Loss Funds to LEAs during the reporting period?',
+    'summerEnrichmentAwarded': 'Did the state award ARP ESSER Summer Enrichment Funds to LEAs during the reporting period?',
+    'afterschoolProgramsAwarded': 'Did the state award ARP ESSER Afterschool Program Funds to LEAs during the reporting period?',
+    'otherAwarded': 'Did the state award ARP ESSER Other Reserve Funds to LEAs during the reporting period?',
+}
+
+# Create combined columns by checking if any ESSER # has a 'Yes' (True) for a category
+df_copy = df.copy()
+
+df_copy['seaFundsAwarded'] = df_copy[['areEsser1SeaFundsAwarded', 'areEsser2SeaFundsAwarded']].any(axis=1)
+df_copy['seaNonLeaFundsAwarded'] = df_copy[['areEsser1SeaNonLeaFundsAwarded', 'areEsser2SeaNonLeaFundsAwarded']].any(axis=1)
+df_copy['learningLossFundsAwarded'] = df_copy[['areEsser3LearningLossFundsAwarded', 'areEsser3NonLeaLearningLossFundsAwarded']].any(axis=1)
+df_copy['summerEnrichmentAwarded'] = df_copy[['areEsser3SummerEnrichmentAwarded', 'areEsser3NonLeaSummerEnrichmentAwarded']].any(axis=1)
+df_copy['afterschoolProgramsAwarded'] = df_copy[['areEsser3AfterschoolProgramsAwarded', 'areEsser3NonLeaAfterschoolProgramsAwarded']].any(axis=1)
+df_copy['otherAwarded'] = df_copy[['areEsser3OtherAwarded', 'areEsser3NonLeaOtherAwarded']].any(axis=1)
+
+# Map boolean columns to numerical values for z, and 'Yes'/'No' for text
+for column in combined_columns_with_names.keys():
+    df_copy[column + '_num'] = df_copy[column].map({True: 1, False: 0})
+    df_copy[column + '_text'] = df_copy[column].map({True: 'Yes', False: 'No'})
+
+# Define the colorscale mapping 0 to 'coral' and 1 to 'teal'
+colorscale = [
+    [0.0, '#304A6F'],
+    [0.4999, '#304A6F'],
+    [0.5, '#10A59C'],
+    [1.0, '#10A59C']
+]
+
+# Loop through each combined question and generate a separate .html file
+for column, name in combined_columns_with_names.items():
+    # Initialize the figure
+    fig = go.Figure()
+
+    # Add a choropleth trace
+    fig.add_trace(go.Choropleth(
+        locations=df_copy['stateCode'],
+        z=df_copy[column + '_num'],
+        text=df_copy[column + '_text'],  # Use 'Yes'/'No' for hover text
+        locationmode="USA-states",
+        colorscale=colorscale,
+        zmin=0,
+        zmax=1,
+        marker_line_color='white',
+        colorbar=dict(
+            title="Response",
+            tickvals=[0, 1],
+            ticktext=['No', 'Yes'],
+            len=0.4,  # Make the colorbar smaller
+            thickness=10,  # Reduce the thickness of the colorbar
+        ),
+        hovertemplate='<b>%{location}</b><br>%{text}<extra></extra>',
+        showscale=True  # Display the legend
+    ))
+
+    # Update the figure layout with the question as the title and set the font to Castoro
+    fig.update_layout(
+        title_text=name,
+        title_x=0.5,
+        title_font=dict(family='Castoro', size=28),  # Castoro font and larger size for the title
+        font=dict(family='Poppins', size=16),  # Use Poppins for other texts
+        margin=dict(l=0, r=0, t=50, b=0),
+        geo=dict(scope='usa'),
+    )
+
+    # Save each figure as a separate .html file
+    filename = f"./../figures/state_esser_combined_{column}.html"
+    fig.write_html(filename)
+    print(f"Saved: {filename}")
+
 # %%
